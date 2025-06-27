@@ -65,7 +65,7 @@ export async function askClaude(
 
   const res = await anthropic.beta.messages.create({
     model: "claude-sonnet-4-20250514",
-    max_tokens: 2048,
+    max_tokens: 8000,
     system: SYSTEM_PROMPT,
     messages: conversationHistory,
     mcp_servers: [
