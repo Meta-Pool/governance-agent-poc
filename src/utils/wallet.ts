@@ -31,3 +31,15 @@ export const initWalletSelector = async () => {
 export const showWalletModal = () => {
   modal?.show();
 };
+
+/**
+ * Gets the active account ID from the wallet selector state.
+ * @returns {Promise<string | null>} The account ID of the signed-in user or null if not signed in.
+ */
+export const getActiveAccountId = async (): Promise<string | null> => {
+  const selector = await initWalletSelector();
+  const state = selector.store.getState();
+  const account = state.accounts[0];
+
+  return account?.accountId || null;
+};

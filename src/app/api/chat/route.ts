@@ -3,10 +3,10 @@ import { askClaude } from "@/utils/claudeClient";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
-  const { message } = await req.json();
+  const { message, accountId } = await req.json();
 
   try {
-    const reply = await askClaude(message);
+    const reply = await askClaude(message, accountId);
 
     return NextResponse.json({ message: reply });
   } catch (error) {

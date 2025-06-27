@@ -22,7 +22,11 @@ export default function Home() {
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [votePayload, setVotePayload] = useState<{ proposal_id: number; voting_option: number } | null>(null);
+  const [votePayload, setVotePayload] = useState<{
+    proposal_id: number;
+    vote: number;
+    [key: string]: any;
+  } | null>(null);
   const [accountId, setAccountId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -53,37 +57,50 @@ export default function Home() {
 
   const sendMessage = async () => {
     if (!input.trim()) return;
+
     const userMessage: Message = { role: 'user', content: input };
-    setMessages([...messages, userMessage]);
+    setMessages(prev => [...prev, userMessage]);
     setInput('');
     setLoading(true);
 
-    const res = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: input })
-    });
+    try {
+      if (!accountId) {
+        throw new Error("Please connect your wallet to chat with the agent.");
+      }
 
-    const data = await res.json();
-    setMessages(prev => [...prev, { role: 'assistant', content: data.message }]);
-    setLoading(false);
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: input, accountId })
+      });
 
-    /*     try {
-          const match = data.message.match(/{[^}]+}/);
-    
-          console.log('data.message_', data.message)
-          if (match) {
-            const parsed = JSON.parse(match[0]);
-    
-            console.log('parsed:', parsed)
-    
-            if (parsed.proposal_id !== undefined && parsed.voting_option !== undefined) {
-              setVotePayload({ proposal_id: parsed.proposal_id, voting_option: parsed.voting_option });
-            }
-          }
-        } catch (_) {
-          // Ignore if not valid
-        } */
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ message: 'Failed to parse error response.' }));
+        throw new Error(errorData.message || `Request failed with status ${res.status}`);
+      }
+
+      const data = await res.json();
+      const assistantMessageContent = data.message;
+      setMessages(prev => [...prev, { role: 'assistant', content: assistantMessageContent }]);
+
+      const match = assistantMessageContent.match(/{[\s\S]*}/);
+
+      if (match && match[0]) {
+        try {
+          const parsed = JSON.parse(match[0]);
+          console.log('Parsed vote payload:', parsed);
+          setVotePayload(parsed);
+        } catch (parseError) {
+          console.error("Failed to parse JSON from AI response:", parseError, "Content:", match[0]);
+        }
+      }
+    } catch (error) {
+      console.error("Error in sendMessage:", error);
+      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+      setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${errorMessage}` }]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const vote = async () => {
@@ -108,19 +125,15 @@ export default function Home() {
             type: "FunctionCall",
             params: {
               methodName: "vote",
-              args: {
-                proposal_id: votePayload.proposal_id,
-                vote: votePayload.voting_option,
-                v_account: signerId,
-              },
+              args: votePayload,
               gas: "30000000000000",
-              deposit: "0",
+              deposit: "1250000000000000000000",
             },
           },
         ],
       });
 
-      const voteLabel = voteMap[votePayload.voting_option];
+      const voteLabel = voteMap[votePayload.vote];
 
       alert(`✅ Voted "${voteLabel}" on proposal #${votePayload.proposal_id}`);
       setVotePayload(null);
@@ -165,12 +178,9 @@ export default function Home() {
           <button onClick={sendMessage} className="p-1 px-4 rounded-lg bg-[#434342]">Send</button>
         </div>
 
-        {console.log('votePayload:', votePayload)}
         {votePayload && (
           <div className="mt-4 text-sm bg-gray-800 text-gray-100 p-4 rounded">
             <p><strong>Pending Vote:</strong></p>
-            <p>Proposal #{votePayload.proposal_id}</p>
-            <p>Vote: <code>{votePayload.voting_option}</code></p>
             <button onClick={vote} className="mt-2 bg-green-500 hover:bg-green-600 text-white py-1 px-3 rounded">
               Confirm Vote via Wallet
             </button>
@@ -182,7 +192,7 @@ export default function Home() {
         <h3 className='text-xl font-semibold text-sky-200'>How does the AI Governance Agent work?</h3>
 
         <div className='text-gray-300 text-sm'>
-          This application integrates Anthropic's Claude AI with the NEAR blockchain through a custom Multi-Contract Provider (MCP). It’s designed to make decentralized governance more accessible and intuitive.
+          This application integrates Anthropic&apos;s Claude AI with the NEAR blockchain through a custom Multi-Contract Provider (MCP). It&apos;s designed to make decentralized governance more accessible and intuitive.
 
           <br /><br />
 
@@ -237,7 +247,3 @@ export default function Home() {
     </main>
   );
 }
-
-
-
-
