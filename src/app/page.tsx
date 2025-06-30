@@ -25,7 +25,7 @@ export default function Home() {
   const [votePayload, setVotePayload] = useState<{
     proposal_id: number;
     vote: number;
-    [key: string]: any;
+    [key: string]: unknown;
   } | null>(null);
   const [accountId, setAccountId] = useState<string | null>(null);
 
